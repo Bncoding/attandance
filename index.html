@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Face ID Attendance & Date-Wise Analytics</title>
+  <title>Face ID Attendance & Analytics</title>
 
   <style>
     :root {
@@ -74,7 +74,7 @@
     th { background: #0f172a; color: var(--muted); }
   </style>
 
-  <!-- External Libraries -->
+  <!-- External JS Dependencies -->
   <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
@@ -94,7 +94,7 @@
 
     <!-- Controls Panel -->
     <div class="panel">
-      <div id="status" class="status-box">Loading face recognition models...</div>
+      <div id="status" class="status-box">Initializing System...</div>
 
       <h3>1. Register Employee Face</h3>
       <input type="text" id="userName" placeholder="Enter Full Name">
@@ -144,7 +144,7 @@
             </tr>
           </thead>
           <tbody id="attendanceTableBody">
-            <tr><td colspan="4" style="text-align: center; color: var(--muted);">Loading logs...</td></tr>
+            <tr><td colspan="4" style="text-align: center; color: var(--muted);">Loading records...</td></tr>
           </tbody>
         </table>
       </div>
@@ -158,15 +158,15 @@
       getFirestore, collection, addDoc, getDocs, query, where, serverTimestamp 
     } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-    // 1. FIREBASE CONFIGURATION (Apni keys se replace karein)
+    // FIREBASE CONFIGURATION (Apni Web App keys se replace karein)
     const firebaseConfig = {
-  apiKey: "AIzaSyBQnxe1gkdK67WkEBMkc-dBHrWaP1CsAlY",
-  authDomain: "attandance-f7975.firebaseapp.com",
-  projectId: "attandance-f7975",
-  storageBucket: "attandance-f7975.firebasestorage.app",
-  messagingSenderId: "444612862835",
-  appId: "1:444612862835:web:0b327b1dbce181c59e5b06"
-};
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_PROJECT.firebaseapp.com",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_PROJECT.appspot.com",
+      messagingSenderId: "YOUR_SENDER_ID",
+      appId: "YOUR_APP_ID"
+    };
 
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
@@ -191,44 +191,66 @@
       document.getElementById('clock').textContent = new Date().toLocaleString();
     }, 1000);
 
-    // 2. Initialize Models & Camera
+    // 1. Initialize Models & Non-blocking Camera Setup
     async function initSystem() {
       try {
+        // Step A: Load AI Face Models
         updateStatus("1/3 Loading Face Models...", "info");
-        
         const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
+        
         await Promise.all([
           faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
           faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
           faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
         ]);
 
-        updateStatus("2/3 Starting Camera...", "info");
+        // Step B: Connect Camera
+        updateStatus("2/3 Requesting Camera Access...", "info");
         const stream = await navigator.mediaDevices.getUserMedia({ 
-          video: { width: { ideal: 640 }, height: { ideal: 480 } } 
+          video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: "user" } 
         });
+        
         video.srcObject = stream;
 
-        video.onloadedmetadata = async () => {
-          await video.play();
-          await loadProfiles();
-          await fetchLogs();
+        // Non-hanging Stream Playback Logic
+        await new Promise((resolve) => {
+          let resolved = false;
+          const onPlay = () => {
+            if (!resolved) {
+              resolved = true;
+              resolve();
+            }
+          };
+          video.onloadedmetadata = () => {
+            video.play().then(onPlay).catch(onPlay);
+          };
+          // Timeout fallback in case video metadata event hangs
+          setTimeout(onPlay, 2500);
+        });
 
-          // Force Enable Buttons
-          btnRegister.removeAttribute('disabled');
-          btnScan.removeAttribute('disabled');
+        // Step C: Fetch Profiles & Attendance Logs
+        updateStatus("3/3 Syncing Database...", "info");
+        await loadProfiles();
+        await fetchLogs();
 
-          updateStatus("System Ready! Align face to scan/register.", "success");
-          startDetectionLoop();
-        };
+        // Enable Action Buttons
+        btnRegister.removeAttribute('disabled');
+        btnScan.removeAttribute('disabled');
+
+        updateStatus("System Ready! Face the camera.", "success");
+        startDetectionLoop();
 
       } catch (err) {
         console.error("Initialization Error:", err);
-        updateStatus("Error: " + err.message + " (VS Code Live Server use karein)", "error");
+        if (location.protocol === 'file:') {
+          updateStatus("Error: Code ko VS Code Live Server se chalayein!", "error");
+        } else {
+          updateStatus("Error: " + err.message, "error");
+        }
       }
     }
 
-    // 3. Face Detection Loop
+    // 2. Realtime Face Detection
     function startDetectionLoop() {
       if (detectionInterval) clearInterval(detectionInterval);
 
@@ -261,25 +283,25 @@
             currentDescriptor = null;
           }
         } catch (e) {
-          console.warn("Detection Loop Exception:", e);
+          console.warn("Detection Loop Warning:", e);
         }
       }, 200);
     }
 
-    // 4. Register Face
+    // 3. Register New User
     btnRegister.addEventListener('click', async () => {
       const name = userNameInput.value.trim();
       if (!name) {
-        alert("Kripya Employee ka naam enter karein!");
+        alert("Kripya Employee ka Naam darj karein!");
         return;
       }
       if (!currentDescriptor) {
-        alert("Camera me face detect nahi ho raha. Frame ke bich me dekhein!");
+        alert("Camera me face nahi dikh raha hai. Front me dekhein!");
         return;
       }
 
       try {
-        updateStatus("Firestore me data save ho raha hai...", "info");
+        updateStatus("Saving to Firestore...", "info");
         await addDoc(collection(db, "users"), {
           name: name,
           descriptor: Array.from(currentDescriptor),
@@ -288,7 +310,7 @@
 
         userNameInput.value = "";
         await loadProfiles();
-        alert(`Success! ${name} ka face register ho gaya hai.`);
+        alert(`Success! ${name} register ho gaye hain.`);
         updateStatus(`Registered: ${name}`, "success");
       } catch (err) {
         console.error(err);
@@ -297,7 +319,7 @@
       }
     });
 
-    // 5. Load Registered Profiles
+    // 4. Load Registered Profiles
     async function loadProfiles() {
       const snap = await getDocs(collection(db, "users"));
       registeredProfiles = [];
@@ -316,14 +338,14 @@
       });
     }
 
-    // 6. Scan Face and Mark Attendance
+    // 5. Scan & Log Attendance
     btnScan.addEventListener('click', async () => {
       if (!currentDescriptor) {
-        alert("Camera me chehra (face) nahi dikh raha!");
+        alert("Camera ke samne face nahi mil raha hai!");
         return;
       }
       if (registeredProfiles.length === 0) {
-        alert("Database me koi bhi registered user nahi mila.");
+        alert("Database me koi registered face nahi hai. Pehle register karein!");
         return;
       }
 
@@ -331,7 +353,7 @@
       const match = matcher.findBestMatch(currentDescriptor);
 
       if (match.label === 'unknown') {
-        updateStatus("Access Denied: Face Recognized Nahi Hua!", "error");
+        updateStatus("Access Denied: Unrecognized Face!", "error");
       } else {
         await logAttendance(match.label);
       }
@@ -346,7 +368,7 @@
         const checkSnap = await getDocs(q);
 
         if (!checkSnap.empty) {
-          updateStatus(`Aaj ki attendance pehle se lag chuki hai: ${userName}`, "error");
+          updateStatus(`Attendance Already Marked Today: ${userName}`, "error");
           return;
         }
 
@@ -365,7 +387,7 @@
       }
     }
 
-    // 7. Fetch & Filter Date-Wise Reports
+    // 6. Fetch & Render Logs
     async function fetchLogs() {
       const snap = await getDocs(collection(db, "attendance"));
       allLogs = [];
@@ -385,13 +407,13 @@
         return matchUser && matchStart && matchEnd;
       });
 
-      filtered.sort((a, b) => (b.date + b.timeStr).localeCompare(a.date + a.timeStr));
+      filtered.sort((a, b) => (b.date + (b.timeStr||'')).localeCompare(a.date + (a.timeStr||'')));
 
       const tbody = document.getElementById('attendanceTableBody');
       tbody.innerHTML = '';
 
       if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: var(--muted);">No records found.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: var(--muted);">No attendance records found.</td></tr>`;
         return;
       }
 
@@ -418,7 +440,7 @@
       renderTable();
     });
 
-    // 8. PDF Export
+    // 7. PDF Export
     document.getElementById('btnExportPDF').addEventListener('click', () => {
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF();
