@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Face ID Attendance & Date-Wise Analytics</title>
+  <title>Face ID Attendance System</title>
 
   <style>
     :root {
@@ -74,7 +74,7 @@
     th { background: #0f172a; color: var(--muted); }
   </style>
 
-  <!-- Updated face-api bundle and PDF libs -->
+  <!-- Required JS Libraries -->
   <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
@@ -82,27 +82,27 @@
 <body>
 
   <div class="header">
-    <h1>Face ID Attendance & Date Reports</h1>
+    <h1>Face ID Attendance System</h1>
     <div id="clock" style="color: var(--muted); font-size: 0.9rem;"></div>
   </div>
 
   <div class="grid">
-    <!-- Video Feed -->
+    <!-- Camera Viewport -->
     <div class="video-container">
       <video id="webcam" autoplay muted playsinline></video>
     </div>
 
-    <!-- Registration & Scanning Controls -->
+    <!-- Registration & Action Controls -->
     <div class="panel">
-      <div id="status" class="status-box">Initializing camera & neural networks...</div>
+      <div id="status" class="status-box">Initializing models & camera...</div>
 
-      <h3>1. Register Face</h3>
-      <input type="text" id="userName" placeholder="Enter Employee Full Name">
+      <h3>1. Register Employee Face</h3>
+      <input type="text" id="userName" placeholder="Enter Full Name">
       <button id="btnRegister" disabled>Register Face</button>
 
       <hr style="border-color: var(--border);">
 
-      <h3>2. Daily Check-In</h3>
+      <h3>2. Daily Attendance</h3>
       <button id="btnScan" disabled>Scan Face & Mark Attendance</button>
     </div>
 
@@ -116,7 +116,7 @@
       <!-- Filters -->
       <div class="filter-bar">
         <div>
-          <label style="font-size: 0.8rem; color: var(--muted);">Employee:</label>
+          <label style="font-size: 0.8rem; color: var(--muted);">Employee Filter:</label>
           <select id="filterUser"><option value="ALL">All Employees</option></select>
         </div>
         <div>
@@ -151,22 +151,22 @@
     </div>
   </div>
 
-  <!-- Firebase Integration -->
+  <!-- Firebase Modular Integration Script -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { 
       getFirestore, collection, addDoc, getDocs, query, where, serverTimestamp 
     } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-    // Replace with your Firebase configuration
+    // 1. Firebase Configuration (UPDATE WITH YOUR FIREBASE KEYS)
     const firebaseConfig = {
-  apiKey: "AIzaSyBQnxe1gkdK67WkEBMkc-dBHrWaP1CsAlY",
-  authDomain: "attandance-f7975.firebaseapp.com",
-  projectId: "attandance-f7975",
-  storageBucket: "attandance-f7975.firebasestorage.app",
-  messagingSenderId: "444612862835",
-  appId: "1:444612862835:web:0b327b1dbce181c59e5b06"
-};
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_PROJECT.firebaseapp.com",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_PROJECT.appspot.com",
+      messagingSenderId: "YOUR_SENDER_ID",
+      appId: "YOUR_APP_ID"
+    };
 
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
@@ -184,74 +184,95 @@
     let currentDescriptor = null;
     let registeredProfiles = [];
     let allLogs = [];
+    let detectionInterval = null;
 
-    // System Clock
+    // Live Clock
     setInterval(() => {
       document.getElementById('clock').textContent = new Date().toLocaleString();
     }, 1000);
 
-    // Init Face API and Camera
+    // 2. Initialize Neural Networks and Webcam
     async function initSystem() {
       try {
-        updateStatus("Loading neural networks...", "info");
+        updateStatus("Loading face recognition models...", "info");
         
-        // Active, fast CDN for Face Models
+        // Load Model files from CDN
         const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model';
-        await faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL);
-        await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
-        await faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL);
+        await Promise.all([
+          faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
+          faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+          faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+        ]);
 
-        updateStatus("Starting Camera...", "info");
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } });
+        updateStatus("Requesting Camera Access...", "info");
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
         video.srcObject = stream;
 
-        await loadProfiles();
-        await fetchLogs();
+        // Clean event handling to prevent camera blinking bug
+        video.onloadedmetadata = async () => {
+          video.play();
+          await loadProfiles();
+          await fetchLogs();
 
-        btnRegister.disabled = false;
-        btnScan.disabled = false;
-        updateStatus("System Active & Ready", "success");
+          btnRegister.disabled = false;
+          btnScan.disabled = false;
+          updateStatus("System Active & Ready", "success");
 
-        startDetectionLoop();
+          startDetectionLoop();
+        };
+
       } catch (err) {
-        updateStatus("Error: " + err.message + ". Make sure you run on localhost/HTTPS.", "error");
+        console.error(err);
+        updateStatus("Error: " + err.message + " (Check localhost or HTTPS URL)", "error");
       }
     }
 
-    // Continuous Face Detection Loop
+    // 3. Continuous Detection Loop (No Stacking Canvas)
     function startDetectionLoop() {
-      const canvas = faceapi.createCanvasFromMedia(video);
-      document.querySelector('.video-container').append(canvas);
+      if (detectionInterval) clearInterval(detectionInterval);
 
-      setInterval(async () => {
-        const displaySize = { width: video.clientWidth || 640, height: video.clientHeight || 480 };
+      const videoContainer = document.querySelector('.video-container');
+      const existingCanvas = videoContainer.querySelector('canvas');
+      if (existingCanvas) existingCanvas.remove();
+
+      const canvas = faceapi.createCanvasFromMedia(video);
+      videoContainer.append(canvas);
+
+      detectionInterval = setInterval(async () => {
+        if (video.videoWidth === 0 || video.videoHeight === 0) return;
+
+        const displaySize = { width: video.videoWidth, height: video.videoHeight };
         faceapi.matchDimensions(canvas, displaySize);
 
-        const detection = await faceapi.detectSingleFace(video)
-          .withFaceLandmarks()
-          .withFaceDescriptor();
+        try {
+          const detection = await faceapi.detectSingleFace(video)
+            .withFaceLandmarks()
+            .withFaceDescriptor();
 
-        const ctx = canvas.getContext('2d');
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+          const ctx = canvas.getContext('2d');
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        if (detection) {
-          currentDescriptor = detection.descriptor;
-          const resized = faceapi.resizeResults(detection, displaySize);
-          faceapi.draw.drawDetections(canvas, resized);
-        } else {
-          currentDescriptor = null;
+          if (detection) {
+            currentDescriptor = detection.descriptor;
+            const resized = faceapi.resizeResults(detection, displaySize);
+            faceapi.draw.drawDetections(canvas, resized);
+          } else {
+            currentDescriptor = null;
+          }
+        } catch (e) {
+          console.warn("Frame read error:", e);
         }
       }, 250);
     }
 
-    // Register Face Descriptor
+    // 4. Save Face Descriptors to Firestore
     btnRegister.addEventListener('click', async () => {
       const name = userNameInput.value.trim();
       if (!name) return alert("Please enter employee full name.");
       if (!currentDescriptor) return alert("Face not detected. Stand directly in front of camera.");
 
       try {
-        updateStatus("Saving face vector...", "info");
+        updateStatus("Registering face profile...", "info");
         await addDoc(collection(db, "users"), {
           name: name,
           descriptor: Array.from(currentDescriptor),
@@ -260,13 +281,13 @@
 
         userNameInput.value = "";
         await loadProfiles();
-        updateStatus(`Success! "${name}" registered.`, "success");
+        updateStatus(`Employee "${name}" registered successfully!`, "success");
       } catch (err) {
         updateStatus("Register Error: " + err.message, "error");
       }
     });
 
-    // Load Saved Profiles
+    // 5. Load Registered Face Descriptors
     async function loadProfiles() {
       const snap = await getDocs(collection(db, "users"));
       registeredProfiles = [];
@@ -274,35 +295,38 @@
 
       snap.forEach(doc => {
         const d = doc.data();
-        registeredProfiles.push(new faceapi.LabeledFaceDescriptors(d.name, [new Float32Array(d.descriptor)]));
-        
-        const opt = document.createElement('option');
-        opt.value = d.name;
-        opt.textContent = d.name;
-        filterUser.appendChild(opt);
+        if (d.name && d.descriptor) {
+          registeredProfiles.push(new faceapi.LabeledFaceDescriptors(d.name, [new Float32Array(d.descriptor)]));
+          
+          const opt = document.createElement('option');
+          opt.value = d.name;
+          opt.textContent = d.name;
+          filterUser.appendChild(opt);
+        }
       });
     }
 
-    // Mark Attendance
+    // 6. Face Match and Attendance Action
     btnScan.addEventListener('click', async () => {
       if (!currentDescriptor) return alert("No face visible in camera!");
-      if (registeredProfiles.length === 0) return alert("No registered employees in database.");
+      if (registeredProfiles.length === 0) return alert("No registered employees found in Firestore.");
 
       const matcher = new faceapi.FaceMatcher(registeredProfiles, 0.6);
       const match = matcher.findBestMatch(currentDescriptor);
 
       if (match.label === 'unknown') {
-        updateStatus("Face Not Recognized!", "error");
+        updateStatus("Access Denied: Unrecognized Face!", "error");
       } else {
         await logAttendance(match.label);
       }
     });
 
+    // 7. Prevent Duplicate Log and Add to DB
     async function logAttendance(userName) {
       try {
         const today = new Date().toISOString().split('T')[0];
 
-        // Prevent duplicate log for the same date
+        // Check if employee already logged in today
         const q = query(collection(db, "attendance"), where("userName", "==", userName), where("date", "==", today));
         const checkSnap = await getDocs(q);
 
@@ -319,14 +343,14 @@
           timestamp: serverTimestamp()
         });
 
-        updateStatus(`Attendance Marked for ${userName}`, "success");
+        updateStatus(`Attendance Marked: ${userName}`, "success");
         await fetchLogs();
       } catch (err) {
         updateStatus("Attendance Error: " + err.message, "error");
       }
     }
 
-    // Fetch and Filter Date-Wise Logs
+    // 8. Fetch and Date-Wise Filter Report
     async function fetchLogs() {
       const snap = await getDocs(collection(db, "attendance"));
       allLogs = [];
@@ -352,7 +376,7 @@
       tbody.innerHTML = '';
 
       if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: var(--muted);">No records found for selected date range.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: var(--muted);">No matching attendance logs found.</td></tr>`;
         return;
       }
 
@@ -368,7 +392,7 @@
       });
     }
 
-    // Event Listeners for Filters
+    // Filter Change Listeners
     filterUser.addEventListener('change', renderTable);
     filterStartDate.addEventListener('change', renderTable);
     filterEndDate.addEventListener('change', renderTable);
@@ -379,7 +403,7 @@
       renderTable();
     });
 
-    // Date-Wise PDF Export
+    // 9. Export PDF Report
     document.getElementById('btnExportPDF').addEventListener('click', () => {
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF();
@@ -388,7 +412,7 @@
       doc.text("Date-Wise Attendance Report", 14, 20);
       
       doc.setFontSize(10);
-      doc.text(`Employee: ${filterUser.value}`, 14, 28);
+      doc.text(`Employee Filter: ${filterUser.value}`, 14, 28);
       doc.text(`Date Range: ${filterStartDate.value || 'Beginning'} to ${filterEndDate.value || 'Today'}`, 14, 34);
 
       const tableData = [];
@@ -413,9 +437,8 @@
       statusDiv.className = `status-box ${type}`;
     }
 
-    video.addEventListener('play', initSystem);
-    // Auto start fallback
-    window.addEventListener('load', () => setTimeout(initSystem, 1000));
+    // Single initialization on Page Load
+    window.addEventListener('DOMContentLoaded', initSystem);
   </script>
 </body>
 </html>
