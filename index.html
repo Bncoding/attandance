@@ -3,353 +3,230 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Smart Face ID Attendance & Employee Dashboard</title>
+  <title>Face ID Attendance & Date-Wise Analytics</title>
 
-  <!-- Modern Responsive UI Styles -->
   <style>
     :root {
-      --bg-color: #0f172a;
-      --card-bg: #1e293b;
+      --bg: #0f172a;
+      --card: #1e293b;
       --accent: #38bdf8;
-      --accent-hover: #0284c7;
       --text: #f8fafc;
-      --text-muted: #94a3b8;
+      --muted: #94a3b8;
       --success: #22c55e;
       --danger: #ef4444;
       --border: #334155;
     }
 
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif; }
-    body { background-color: var(--bg-color); color: var(--text); padding: 1.5rem; }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, sans-serif; }
+    body { background-color: var(--bg); color: var(--text); padding: 1.5rem; }
 
     .header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 1.5rem;
-      border-bottom: 1px solid var(--border);
-      padding-bottom: 1rem;
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 1.5rem; border-bottom: 1px solid var(--border); padding-bottom: 1rem;
     }
+    h1 { font-size: 1.5rem; color: var(--accent); }
 
-    h1 { font-size: 1.6rem; color: var(--accent); }
+    .grid { display: grid; grid-template-columns: 1fr 380px; gap: 1.5rem; }
+    @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
 
-    .main-grid {
-      display: grid;
-      grid-template-columns: 1fr 380px;
-      gap: 1.5rem;
+    .video-container {
+      position: relative; background: #000; border-radius: 12px;
+      overflow: hidden; aspect-ratio: 4/3; box-shadow: 0 10px 25px rgba(0,0,0,0.5);
     }
+    video, canvas { position: absolute; top:0; left:0; width:100%; height:100%; object-fit: cover; }
 
-    @media (max-width: 900px) {
-      .main-grid { grid-template-columns: 1fr; }
-    }
-
-    /* Video Player Area */
-    .video-wrapper {
-      position: relative;
-      background: #000;
-      border-radius: 12px;
-      overflow: hidden;
-      aspect-ratio: 4/3;
-      box-shadow: 0 10px 25px rgba(0,0,0,0.4);
-    }
-
-    video, canvas {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-    }
-
-    /* UI Panels */
     .panel {
-      background: var(--card-bg);
-      padding: 1.25rem;
-      border-radius: 12px;
-      display: flex;
-      flex-direction: column;
-      gap: 1rem;
-      border: 1px solid var(--border);
-    }
-
-    .section-title {
-      font-size: 1.1rem;
-      font-weight: 600;
-      color: var(--text);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
+      background: var(--card); padding: 1.25rem; border-radius: 12px;
+      display: flex; flex-direction: column; gap: 1rem; border: 1px solid var(--border);
     }
 
     input, select, button {
-      width: 100%;
-      padding: 0.65rem 0.85rem;
-      border-radius: 6px;
-      border: 1px solid var(--border);
-      background: #0f172a;
-      color: var(--text);
-      font-size: 0.9rem;
+      width: 100%; padding: 0.65rem; border-radius: 6px;
+      border: 1px solid var(--border); background: #0f172a; color: var(--text); font-size: 0.9rem;
     }
 
-    button {
-      background: var(--accent);
-      color: #0f172a;
-      font-weight: 600;
-      cursor: pointer;
-      border: none;
-      transition: background 0.2s;
+    button { background: var(--accent); color: #0f172a; font-weight: 600; cursor: pointer; border: none; }
+    button:hover { opacity: 0.9; }
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .btn-pdf { background: #e11d48; color: #fff; }
+
+    .status-box {
+      padding: 0.6rem; border-radius: 6px; font-size: 0.85rem; text-align: center; background: #334155;
+    }
+    .status-box.success { background: rgba(34,197,94,0.2); color: var(--success); border: 1px solid var(--success); }
+    .status-box.error { background: rgba(239,68,68,0.2); color: var(--danger); border: 1px solid var(--danger); }
+
+    /* Report Section */
+    .report-section {
+      grid-column: 1 / -1; background: var(--card); padding: 1.5rem;
+      border-radius: 12px; margin-top: 1.5rem; border: 1px solid var(--border);
     }
 
-    button:hover { background: var(--accent-hover); }
-    button:disabled { opacity: 0.5; cursor: not-allowed; }
-
-    .btn-secondary {
-      background: #334155;
-      color: var(--text);
-    }
-    .btn-secondary:hover { background: #475569; }
-
-    .btn-pdf {
-      background: #e11d48;
-      color: white;
-    }
-    .btn-pdf:hover { background: #be123c; }
-
-    .status {
-      padding: 0.6rem;
-      border-radius: 6px;
-      font-size: 0.85rem;
-      text-align: center;
-      background: #334155;
-    }
-    .status.success { background: rgba(34, 197, 94, 0.2); color: var(--success); border: 1px solid var(--success); }
-    .status.error { background: rgba(239, 68, 68, 0.2); color: var(--danger); border: 1px solid var(--danger); }
-
-    /* Employee Dashboard Panel */
-    .dashboard-panel {
-      grid-column: 1 / -1;
-      background: var(--card-bg);
-      padding: 1.5rem;
-      border-radius: 12px;
-      border: 1px solid var(--border);
-      margin-top: 1.5rem;
+    .filter-bar {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 1rem; margin: 1rem 0; align-items: end;
     }
 
-    .stats-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 1rem;
-      margin: 1rem 0;
-    }
-
-    .stat-card {
-      background: #0f172a;
-      padding: 1rem;
-      border-radius: 8px;
-      border: 1px solid var(--border);
-    }
-
-    .stat-card .label { font-size: 0.8rem; color: var(--text-muted); }
-    .stat-card .val { font-size: 1.5rem; font-weight: bold; margin-top: 0.3rem; color: var(--accent); }
-
-    .table-container {
-      overflow-x: auto;
-      margin-top: 1rem;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      text-align: left;
-      font-size: 0.9rem;
-    }
-
-    th, td {
-      padding: 0.75rem;
-      border-bottom: 1px solid var(--border);
-    }
-
-    th { background: #0f172a; color: var(--text-muted); }
-    tr:hover { background: rgba(255, 255, 255, 0.02); }
-
-    .badge {
-      display: inline-block;
-      padding: 0.25rem 0.5rem;
-      border-radius: 4px;
-      font-size: 0.75rem;
-      font-weight: 600;
-    }
-    .badge-present { background: rgba(34, 197, 94, 0.2); color: var(--success); }
+    .table-wrapper { overflow-x: auto; margin-top: 1rem; }
+    table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem; }
+    th, td { padding: 0.75rem; border-bottom: 1px solid var(--border); }
+    th { background: #0f172a; color: var(--muted); }
   </style>
 
-  <!-- JS Dependencies: Face-API, Firebase, & jsPDF for PDF Exports -->
-  <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+  <!-- Updated face-api bundle and PDF libs -->
+  <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
 </head>
 <body>
 
   <div class="header">
-    <h1>Attendance System + Employee Analytics</h1>
-    <span id="system-time" style="color: var(--text-muted); font-size: 0.9rem;"></span>
+    <h1>Face ID Attendance & Date Reports</h1>
+    <div id="clock" style="color: var(--muted); font-size: 0.9rem;"></div>
   </div>
 
-  <div class="main-grid">
-    <!-- Camera Viewport -->
-    <div class="video-wrapper">
-      <video id="webcam" autoplay muted></video>
+  <div class="grid">
+    <!-- Video Feed -->
+    <div class="video-container">
+      <video id="webcam" autoplay muted playsinline></video>
     </div>
 
-    <!-- Controls Sidebar -->
+    <!-- Registration & Scanning Controls -->
     <div class="panel">
-      <div id="status" class="status">Loading neural network models...</div>
+      <div id="status" class="status-box">Initializing camera & neural networks...</div>
 
-      <div class="section-title">Register Employee</div>
-      <input type="text" id="userName" placeholder="Enter Full Name">
-      <button id="btnRegister" disabled>Capture & Register Face</button>
+      <h3>1. Register Face</h3>
+      <input type="text" id="userName" placeholder="Enter Employee Full Name">
+      <button id="btnRegister" disabled>Register Face</button>
 
       <hr style="border-color: var(--border);">
 
-      <div class="section-title">Scan Face</div>
-      <button id="btnScan" disabled>Scan & Mark Attendance</button>
+      <h3>2. Daily Check-In</h3>
+      <button id="btnScan" disabled>Scan Face & Mark Attendance</button>
     </div>
 
-    <!-- In-App Employee Data & PDF Export Dashboard -->
-    <div class="dashboard-panel">
-      <div class="section-title">
-        <span>Employee Database & Attendance Logs</span>
-        <div style="display: flex; gap: 0.5rem; width: auto;">
-          <button id="btnExportPDF" class="btn-pdf" style="width: auto; padding: 0.5rem 1rem;">📄 Export PDF</button>
-        </div>
+    <!-- Date-Wise Attendance Reports -->
+    <div class="report-section">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h2>Date-Wise Attendance Report</h2>
+        <button id="btnExportPDF" class="btn-pdf" style="width: auto; padding: 0.5rem 1.2rem;">📄 Export PDF</button>
       </div>
 
-      <!-- Employee Filter Controls -->
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem;">
+      <!-- Filters -->
+      <div class="filter-bar">
         <div>
-          <label style="font-size: 0.8rem; color: var(--text-muted);">Select Employee Filter:</label>
-          <select id="employeeSelect">
-            <option value="ALL">All Registered Employees</option>
-          </select>
+          <label style="font-size: 0.8rem; color: var(--muted);">Employee:</label>
+          <select id="filterUser"><option value="ALL">All Employees</option></select>
         </div>
         <div>
-          <label style="font-size: 0.8rem; color: var(--text-muted);">Date Filter:</label>
-          <input type="date" id="dateFilter">
+          <label style="font-size: 0.8rem; color: var(--muted);">Start Date:</label>
+          <input type="date" id="filterStartDate">
+        </div>
+        <div>
+          <label style="font-size: 0.8rem; color: var(--muted);">End Date:</label>
+          <input type="date" id="filterEndDate">
+        </div>
+        <div>
+          <button id="btnClearFilters" style="background:#334155; color:#fff;">Reset Filters</button>
         </div>
       </div>
 
-      <!-- Live Analytics Summary -->
-      <div class="stats-grid">
-        <div class="stat-card">
-          <div class="label">Total Records</div>
-          <div class="val" id="statTotalLogs">0</div>
-        </div>
-        <div class="stat-card">
-          <div class="label">Unique Days Attended</div>
-          <div class="val" id="statDaysAttended">0</div>
-        </div>
-        <div class="stat-card">
-          <div class="label">Last Seen Timestamp</div>
-          <div class="val" id="statLastSeen" style="font-size: 1rem;">N/A</div>
-        </div>
-      </div>
-
-      <!-- Attendance Table -->
-      <div class="table-container">
+      <!-- Logs Table -->
+      <div class="table-wrapper">
         <table>
           <thead>
             <tr>
               <th>Employee Name</th>
               <th>Date</th>
-              <th>Time</th>
+              <th>Check-in Time</th>
               <th>Status</th>
             </tr>
           </thead>
           <tbody id="attendanceTableBody">
-            <tr><td colspan="4" style="text-align: center; color: var(--text-muted);">No logs found.</td></tr>
+            <tr><td colspan="4" style="text-align: center; color: var(--muted);">Loading logs...</td></tr>
           </tbody>
         </table>
       </div>
     </div>
   </div>
 
-  <!-- Firebase Integration Script -->
+  <!-- Firebase Integration -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { 
       getFirestore, collection, addDoc, getDocs, query, where, serverTimestamp 
     } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-    // 1. Firebase Configuration (Replace with your Firebase Console keys)
+    // Replace with your Firebase configuration
     const firebaseConfig = {
-  apiKey: "AIzaSyBQnxe1gkdK67WkEBMkc-dBHrWaP1CsAlY",
-  authDomain: "attandance-f7975.firebaseapp.com",
-  projectId: "attandance-f7975",
-  storageBucket: "attandance-f7975.firebasestorage.app",
-  messagingSenderId: "444612862835",
-  appId: "1:444612862835:web:0b327b1dbce181c59e5b06"
-};
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_PROJECT.firebaseapp.com",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_PROJECT.appspot.com",
+      messagingSenderId: "YOUR_SENDER_ID",
+      appId: "YOUR_APP_ID"
+    };
 
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
-    // DOM References
+    // DOM Elements
     const video = document.getElementById('webcam');
     const statusDiv = document.getElementById('status');
     const btnRegister = document.getElementById('btnRegister');
     const btnScan = document.getElementById('btnScan');
     const userNameInput = document.getElementById('userName');
-    const employeeSelect = document.getElementById('employeeSelect');
-    const dateFilter = document.getElementById('dateFilter');
-    const btnExportPDF = document.getElementById('btnExportPDF');
+    const filterUser = document.getElementById('filterUser');
+    const filterStartDate = document.getElementById('filterStartDate');
+    const filterEndDate = document.getElementById('filterEndDate');
 
     let currentDescriptor = null;
     let registeredProfiles = [];
-    let allAttendanceLogs = [];
+    let allLogs = [];
 
-    // System Time Display
+    // System Clock
     setInterval(() => {
-      document.getElementById('system-time').textContent = new Date().toLocaleString();
+      document.getElementById('clock').textContent = new Date().toLocaleString();
     }, 1000);
 
-    // 2. Initialize Models & Camera
+    // Init Face API and Camera
     async function initSystem() {
       try {
-        const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
-        await Promise.all([
-          faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
-          faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
-          faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
-        ]);
+        updateStatus("Loading neural networks...", "info");
+        
+        // Active, fast CDN for Face Models
+        const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model';
+        await faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL);
+        await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
+        await faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL);
 
-        updateStatus("Models Loaded. Accessing Camera...", "info");
-        await startWebcam();
-        await loadRegisteredProfiles();
-        await fetchAttendanceLogs();
+        updateStatus("Starting Camera...", "info");
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } });
+        video.srcObject = stream;
+
+        await loadProfiles();
+        await fetchLogs();
 
         btnRegister.disabled = false;
         btnScan.disabled = false;
-        updateStatus("System Ready", "success");
+        updateStatus("System Active & Ready", "success");
 
-        detectFaceLoop();
+        startDetectionLoop();
       } catch (err) {
-        updateStatus("Initialization Error: " + err.message, "error");
+        updateStatus("Error: " + err.message + ". Make sure you run on localhost/HTTPS.", "error");
       }
     }
 
-    async function startWebcam() {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: {} });
-      video.srcObject = stream;
-    }
-
-    async function detectFaceLoop() {
+    // Continuous Face Detection Loop
+    function startDetectionLoop() {
       const canvas = faceapi.createCanvasFromMedia(video);
-      document.querySelector('.video-wrapper').append(canvas);
-      
-      const displaySize = { width: video.videoWidth || 640, height: video.videoHeight || 480 };
-      faceapi.matchDimensions(canvas, displaySize);
+      document.querySelector('.video-container').append(canvas);
 
       setInterval(async () => {
+        const displaySize = { width: video.clientWidth || 640, height: video.clientHeight || 480 };
+        faceapi.matchDimensions(canvas, displaySize);
+
         const detection = await faceapi.detectSingleFace(video)
           .withFaceLandmarks()
           .withFaceDescriptor();
@@ -359,86 +236,78 @@
 
         if (detection) {
           currentDescriptor = detection.descriptor;
-          const resizedDetection = faceapi.resizeResults(detection, displaySize);
-          faceapi.draw.drawDetections(canvas, resizedDetection);
+          const resized = faceapi.resizeResults(detection, displaySize);
+          faceapi.draw.drawDetections(canvas, resized);
         } else {
           currentDescriptor = null;
         }
-      }, 200);
+      }, 250);
     }
 
-    // 3. Register Face Profile
+    // Register Face Descriptor
     btnRegister.addEventListener('click', async () => {
       const name = userNameInput.value.trim();
-      if (!name) return alert("Please type an employee name.");
-      if (!currentDescriptor) return alert("No face detected in camera view.");
+      if (!name) return alert("Please enter employee full name.");
+      if (!currentDescriptor) return alert("Face not detected. Stand directly in front of camera.");
 
       try {
-        updateStatus("Saving profile...", "info");
+        updateStatus("Saving face vector...", "info");
         await addDoc(collection(db, "users"), {
           name: name,
           descriptor: Array.from(currentDescriptor),
-          registeredAt: serverTimestamp()
+          createdAt: serverTimestamp()
         });
 
         userNameInput.value = "";
-        await loadRegisteredProfiles();
-        updateStatus(`Employee "${name}" registered successfully!`, "success");
-      } catch (e) {
-        updateStatus("Save Failed: " + e.message, "error");
+        await loadProfiles();
+        updateStatus(`Success! "${name}" registered.`, "success");
+      } catch (err) {
+        updateStatus("Register Error: " + err.message, "error");
       }
     });
 
-    // 4. Fetch Registered Profiles to Dropdown & Recognition Engine
-    async function loadRegisteredProfiles() {
-      const querySnapshot = await getDocs(collection(db, "users"));
+    // Load Saved Profiles
+    async function loadProfiles() {
+      const snap = await getDocs(collection(db, "users"));
       registeredProfiles = [];
-      employeeSelect.innerHTML = `<option value="ALL">All Registered Employees</option>`;
-      
-      querySnapshot.forEach((doc) => {
-        const data = doc.data();
-        registeredProfiles.push(
-          new faceapi.LabeledFaceDescriptors(data.name, [new Float32Array(data.descriptor)])
-        );
+      filterUser.innerHTML = `<option value="ALL">All Employees</option>`;
 
-        // Populate filter dropdown
+      snap.forEach(doc => {
+        const d = doc.data();
+        registeredProfiles.push(new faceapi.LabeledFaceDescriptors(d.name, [new Float32Array(d.descriptor)]));
+        
         const opt = document.createElement('option');
-        opt.value = data.name;
-        opt.textContent = data.name;
-        employeeSelect.appendChild(opt);
+        opt.value = d.name;
+        opt.textContent = d.name;
+        filterUser.appendChild(opt);
       });
     }
 
-    // 5. Scan & Prevent Duplicate Check-ins
+    // Mark Attendance
     btnScan.addEventListener('click', async () => {
-      if (!currentDescriptor) return alert("No face detected.");
-      if (registeredProfiles.length === 0) return alert("No users registered.");
+      if (!currentDescriptor) return alert("No face visible in camera!");
+      if (registeredProfiles.length === 0) return alert("No registered employees in database.");
 
-      updateStatus("Matching face...", "info");
-      const faceMatcher = new faceapi.FaceMatcher(registeredProfiles, 0.6);
-      const match = faceMatcher.findBestMatch(currentDescriptor);
+      const matcher = new faceapi.FaceMatcher(registeredProfiles, 0.6);
+      const match = matcher.findBestMatch(currentDescriptor);
 
       if (match.label === 'unknown') {
-        updateStatus("Access Denied: Unrecognized Face", "error");
+        updateStatus("Face Not Recognized!", "error");
       } else {
-        await recordAttendance(match.label);
+        await logAttendance(match.label);
       }
     });
 
-    async function recordAttendance(userName) {
+    async function logAttendance(userName) {
       try {
         const today = new Date().toISOString().split('T')[0];
-        
-        // Check for duplicate daily check-in
-        const q = query(
-          collection(db, "attendance"),
-          where("userName", "==", userName),
-          where("date", "==", today)
-        );
-        const existingDocs = await getDocs(q);
 
-        if (!existingDocs.empty) {
-          updateStatus(`Already Checked In Today: ${userName}`, "error");
+        // Prevent duplicate log for the same date
+        const q = query(collection(db, "attendance"), where("userName", "==", userName), where("date", "==", today));
+        const checkSnap = await getDocs(q);
+
+        if (!checkSnap.empty) {
+          updateStatus(`Already checked in today: ${userName}`, "error");
           return;
         }
 
@@ -450,122 +319,103 @@
           timestamp: serverTimestamp()
         });
 
-        updateStatus(`Attendance Marked: ${userName}`, "success");
-        await fetchAttendanceLogs(); // Refresh in-app table
-      } catch (e) {
-        updateStatus("Log Error: " + e.message, "error");
+        updateStatus(`Attendance Marked for ${userName}`, "success");
+        await fetchLogs();
+      } catch (err) {
+        updateStatus("Attendance Error: " + err.message, "error");
       }
     }
 
-    // 6. Fetch Attendance Logs & Apply In-App Filters
-    async function fetchAttendanceLogs() {
-      const querySnapshot = await getDocs(collection(db, "attendance"));
-      allAttendanceLogs = [];
+    // Fetch and Filter Date-Wise Logs
+    async function fetchLogs() {
+      const snap = await getDocs(collection(db, "attendance"));
+      allLogs = [];
+      snap.forEach(doc => allLogs.push(doc.data()));
+      renderTable();
+    }
 
-      querySnapshot.forEach(doc => {
-        allAttendanceLogs.push(doc.data());
+    function renderTable() {
+      const userVal = filterUser.value;
+      const startVal = filterStartDate.value;
+      const endVal = filterEndDate.value;
+
+      let filtered = allLogs.filter(log => {
+        let matchUser = (userVal === "ALL" || log.userName === userVal);
+        let matchStart = (!startVal || log.date >= startVal);
+        let matchEnd = (!endVal || log.date <= endVal);
+        return matchUser && matchStart && matchEnd;
       });
 
-      renderFilteredData();
-    }
+      filtered.sort((a, b) => (b.date + b.timeStr).localeCompare(a.date + a.timeStr));
 
-    function renderFilteredData() {
-      const selectedUser = employeeSelect.value;
-      const selectedDate = dateFilter.value;
-
-      let filtered = allAttendanceLogs;
-
-      if (selectedUser !== "ALL") {
-        filtered = filtered.filter(item => item.userName === selectedUser);
-      }
-
-      if (selectedDate) {
-        filtered = filtered.filter(item => item.date === selectedDate);
-      }
-
-      // Sort by newest first
-      filtered.sort((a, b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0));
-
-      // Render Statistics
-      document.getElementById('statTotalLogs').textContent = filtered.length;
-      const uniqueDays = new Set(filtered.map(i => i.date)).size;
-      document.getElementById('statDaysAttended').textContent = uniqueDays;
-      document.getElementById('statLastSeen').textContent = filtered.length > 0 ? `${filtered[0].date} ${filtered[0].timeStr}` : 'N/A';
-
-      // Render Table Rows
       const tbody = document.getElementById('attendanceTableBody');
       tbody.innerHTML = '';
 
       if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: var(--text-muted);">No matching attendance logs found.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: var(--muted);">No records found for selected date range.</td></tr>`;
         return;
       }
 
-      filtered.forEach(log => {
+      filtered.forEach(item => {
         const tr = document.createElement('tr');
         tr.innerHTML = `
-          <td><strong>${log.userName}</strong></td>
-          <td>${log.date}</td>
-          <td>${log.timeStr || 'N/A'}</td>
-          <td><span class="badge badge-present">Present</span></td>
+          <td><strong>${item.userName}</strong></td>
+          <td>${item.date}</td>
+          <td>${item.timeStr || 'N/A'}</td>
+          <td><span style="color:var(--success); font-weight:bold;">Present</span></td>
         `;
         tbody.appendChild(tr);
       });
     }
 
-    // Filter Listeners
-    employeeSelect.addEventListener('change', renderFilteredData);
-    dateFilter.addEventListener('change', renderFilteredData);
+    // Event Listeners for Filters
+    filterUser.addEventListener('change', renderTable);
+    filterStartDate.addEventListener('change', renderTable);
+    filterEndDate.addEventListener('change', renderTable);
+    document.getElementById('btnClearFilters').addEventListener('click', () => {
+      filterUser.value = "ALL";
+      filterStartDate.value = "";
+      filterEndDate.value = "";
+      renderTable();
+    });
 
-    // 7. PDF Export Functionality
-    btnExportPDF.addEventListener('click', () => {
+    // Date-Wise PDF Export
+    document.getElementById('btnExportPDF').addEventListener('click', () => {
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF();
 
-      const selectedUser = employeeSelect.value;
-      const filterTitle = selectedUser === "ALL" ? "All Employees" : selectedUser;
-
-      // Header Document Styling
-      doc.setFontSize(18);
-      doc.setTextColor(15, 23, 42);
-      doc.text("Attendance Report", 14, 20);
-
+      doc.setFontSize(16);
+      doc.text("Date-Wise Attendance Report", 14, 20);
+      
       doc.setFontSize(10);
-      doc.setTextColor(100);
-      doc.text(`Employee Filter: ${filterTitle}`, 14, 28);
-      doc.text(`Generated On: ${new Date().toLocaleString()}`, 14, 34);
+      doc.text(`Employee: ${filterUser.value}`, 14, 28);
+      doc.text(`Date Range: ${filterStartDate.value || 'Beginning'} to ${filterEndDate.value || 'Today'}`, 14, 34);
 
-      // Construct Table Rows for PDF
-      const pdfData = [];
-      const tbody = document.getElementById('attendanceTableBody');
-      const rows = tbody.querySelectorAll('tr');
-
-      rows.forEach(row => {
-        const cols = row.querySelectorAll('td');
-        if (cols.length === 4) {
-          pdfData.push([
-            cols[0].innerText,
-            cols[1].innerText,
-            cols[2].innerText,
-            cols[3].innerText
-          ]);
+      const tableData = [];
+      document.querySelectorAll('#attendanceTableBody tr').forEach(tr => {
+        const tds = tr.querySelectorAll('td');
+        if (tds.length === 4) {
+          tableData.push([tds[0].innerText, tds[1].innerText, tds[2].innerText, tds[3].innerText]);
         }
       });
 
-      // Render AutoTable into PDF
       doc.autoTable({
         startY: 40,
-        head: [['Employee Name', 'Date', 'Check-in Time', 'Status']],
-        body: pdfData,
-        theme: 'striped',
-        headStyles: { fillColor: [56, 189, 248], textColor: [15, 23, 42], fontStyle: 'bold' }
+        head: [['Employee Name', 'Date', 'Time', 'Status']],
+        body: tableData,
       });
 
-      // Trigger Download
-      doc.save(`Attendance_Report_${filterTitle}_${new Date().toISOString().split('T')[0]}.pdf`);
+      doc.save(`Attendance_Report_${new Date().toISOString().split('T')[0]}.pdf`);
     });
 
+    function updateStatus(msg, type) {
+      statusDiv.textContent = msg;
+      statusDiv.className = `status-box ${type}`;
+    }
+
     video.addEventListener('play', initSystem);
+    // Auto start fallback
+    window.addEventListener('load', () => setTimeout(initSystem, 1000));
   </script>
 </body>
 </html>
